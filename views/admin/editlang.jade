@@ -34,27 +34,27 @@ html
                 else if endangermentNum == "2"
                     script.
                         $(document).ready(function(){
-                            $("#end1").attr("selected","selected");
+                            $("#end2").attr("selected","selected");
                         });
                 else if endangermentNum == "3"
                     script.
                         $(document).ready(function(){
-                            $("#end1").attr("selected","selected");
+                            $("#end3").attr("selected","selected");
                         });
                 else if endangermentNum == "4"
                     script.
                         $(document).ready(function(){
-                            $("#end1").attr("selected","selected");
+                            $("#end4").attr("selected","selected");
                         });
                 else if endangermentNum == "5"
                     script.
                         $(document).ready(function(){
-                            $("#end1").attr("selected","selected");
+                            $("#end5").attr("selected","selected");
                         });
                 else if endangermentNum == "6"
                     script.
                         $(document).ready(function(){
-                            $("#end1").attr("selected","selected");
+                            $("#end6").attr("selected","selected");
                         });
 
             div#languageForm
@@ -96,8 +96,8 @@ html
                         option(id="end4", value="4") 4
                         option(id="end5", value="5") 5
                         option(id="end6", value="6") 6
-                    button.endangerment#btnSubmit(type="submit") update
-                    span.endangerment#idstatus updating...
+                    button.endangermentNum#btnSubmit(type="submit") update
+                    span.endangermentNum#idstatus updating...
                     
                 form#formUpdateStatus(name="editlang",method="post",action="/updateEntry")     
                     input#input_ID(type="hidden",value=_id,name="_id",)
@@ -113,9 +113,22 @@ html
                     button.nta#btnSubmit(type="submit") update
                     span.nta#idstatus updating...
 
+                form#formScript(name="editlang",method="post",action="/updateEntry")     
+                    input#input_ID(type="hidden",value=_id,name="_id",)
+                    input#inputScript(type="text", value="script", name="query", readonly)
+                    input#inputScript(type="text", value=script, name="value")
+                    button.script#btnSubmit(type="submit") update
+                    span.script#idstatus updating...
+
+                form#formVideoURL(name="editlang",method="post",action="/updateEntry")     
+                    input#input_ID(type="hidden",value=_id,name="_id",)
+                    input#inputVideoURL(type="text", value="videoURL", name="query", readonly)
+                    input#inputVideoURL(type="text", value=videoURL, name="value")
+                    button.videoURL#btnSubmit(type="submit") update
+                    span.videoURL#idstatus updating...
+
                 form#formReturn(name="return",method="get",action="/admin")                
                     button#btnSave(type="submit") Return
-
                 form#formReturn(name="return",method="post",action="/removeLang")
                     input#input_ID(type="hidden",value=_id,name="_id",)                
                     button#btnSave(type="submit") Delete This Entry

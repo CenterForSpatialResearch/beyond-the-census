@@ -5,9 +5,14 @@ var request = require('request');
 var cheerio = require('cheerio');
 var storyhelper = require('./helpers/storyhelper');
 var https = require('https');
+var getVideoId = require('get-video-id');
 
 // var mongoDB = process.env.MONGODB_URI || 'mongodb://localhost/ELAdata';
-var mongoDB = 'mongodb://c4sr:languages@ds227555.mlab.com:27555/heroku_wpb27xt2'
+
+//live db
+var mongoDB = 'mongodb://c4sr:lang2018@ds151530.mlab.com:51530/heroku_n7xsssc4'
+//test db
+// var mongoDB = 'mongodb://c4sr:lang2018@ds151530.mlab.com:51530/heroku_8kgpwpjz'
 
 /* ~~~ mongoose connection (access to database) ~~~ */
   mongoose.connect(mongoDB, function (err) {
@@ -53,27 +58,7 @@ var mongoDB = 'mongodb://c4sr:languages@ds227555.mlab.com:27555/heroku_wpb27xt2'
     language: String,
     description: String,
     region: String,
-    endangermentNum: String,
-    sttus: String,
-    latitude: String,
-    longitude: String,
-    ntacode_1: String,
-    iso_country1: String,
-    iso_country2: String,
-    iso_country3: String,
-    iso_country4: String,
-    iso_country5: String,
-    iso_country6: String,
-  });
-
-  var TestSchema = new Schema({
-    _id: Schema.Types.ObjectId,
-    hid: String,
-    id: String,
-    language: String,
-    description: String,
-    region: String,
-    endangermentNum: String,
+    endangermentNum: Number,
     status: String,
     latitude: String,
     longitude: String,
@@ -84,11 +69,11 @@ var mongoDB = 'mongodb://c4sr:languages@ds227555.mlab.com:27555/heroku_wpb27xt2'
     iso_country4: String,
     iso_country5: String,
     iso_country6: String,
-    countries: [{type: Schema.Types.ObjectId, ref: 'Country'}],
-    continents: [{type: Schema.Types.ObjectId, ref: 'Continent'}],
-    neighborhoods: [{type: Schema.Types.ObjectId, ref: 'Neighborhood'}],
-    institutions: [{type: Schema.Types.ObjectId, ref: 'Institution'}]
+    script: String,
+    videoURL: String
   });
+
+  
 
 
   var InstitutionSchema = new Schema({
@@ -108,7 +93,6 @@ var mongoDB = 'mongodb://c4sr:languages@ds227555.mlab.com:27555/heroku_wpb27xt2'
       description : String,
       institution : String,
       address : String,
-      // type : String
     },
     geometry : {}
   });
@@ -118,34 +102,6 @@ var mongoDB = 'mongodb://c4sr:languages@ds227555.mlab.com:27555/heroku_wpb27xt2'
   });
 
 
-  var InstitutiontestSchema = new Schema({
-    _id: Schema.Types.ObjectId,
-    type : String,
-    properties: {
-      // lang_1 : String,
-      // lang_2 : String,
-      // lang_3 : String,
-      // lang_4 : String,
-      // lang_5 : String,
-      // lang_6 : String,
-      // lang_7 : String,
-      // lang_8 : String,
-      // lang_9 : String,
-      // comment : String,
-      // description : String,
-      // institution : String,
-      // address : String,
-      // type : String
-      // // languages: [{type: Schema.Types.ObjectId, ref: 'Language'}],
-    },
-    geometry : {}
-    //   type : "Point",
-    //   coordinates : [
-    //     -73.92828615071284,
-    //     40.75610717922607
-    //   ]
-    // }
-  });
 
 
  
@@ -160,8 +116,6 @@ var mongoDB = 'mongodb://c4sr:languages@ds227555.mlab.com:27555/heroku_wpb27xt2'
   var Language = mongoose.model('Language', LanguageSchema);
   var Institution = mongoose.model('Institution', InstitutionSchema);
   var Individual = mongoose.model('Individual', IndividualSchema);
-  var Test = mongoose.model('Test', TestSchema);
-  var Institutiontest = mongoose.model('Institutiontest', InstitutiontestSchema);
 
 
 /* ~~~ GET routes for pages (visible stuff) ~~~ */
@@ -395,16 +349,16 @@ var mongoDB = 'mongodb://c4sr:languages@ds227555.mlab.com:27555/heroku_wpb27xt2'
 
 
 router.get('/editlang', function(req, res){
-  console.log(req.query.query);
+
+
   Language.findOne({[req.query.query]: req.query.value}, function(err, obj){
-  // Test.findOne({[req.query.query]: req.query.value}, function(err, obj){
     if (err){
       res.send(err);
     }
     if(obj){
       obj = obj.toObject();
 
-      console.log("endangermentNum "+ obj.endangermentNum);
+  
       res.render('admin/editlang', {title: "Language",
                               _id: obj._id,
                               hid: obj.hid,
@@ -425,7 +379,9 @@ router.get('/editlang', function(req, res){
                               iso_country6: obj.iso_country6,
                               neighborhoods: obj.neighborhoods[0],
                               institutions: obj.institutions[0],
-                              continents: obj.continents[0]
+                              continents: obj.continents[0],
+                              script: obj.script,
+                              videoURL:obj.videoURL
                               });
     } else {
       res.send("This entry is not in the database. Check query or contact admin.");
@@ -439,9 +395,6 @@ router.get('/editinst', function(req, res){
   console.log(req.query.query);
   console.log(req.query.value);
   Institution.findOne({[req.query.query]: req.query.value}, function(err, obj){
-  // Institutiontest.findOne({[req.query.query]: req.query.value}, function(err, obj){
-      console.log("pjwpeofjwfw" +obj);
-
     if (err){
       res.send(err);
     }
@@ -472,13 +425,21 @@ router.get('/editinst', function(req, res){
   });
 })
 
+  function die(res, message, id){
+
+    Language.remove({_id : id}, function(err) {
+
+      if(err) {
+        res.send(err);
+      }
+      else{
+      res.send(message);
+      }
+    })
+  }
+
   /* POST to Add User Service */
   router.post('/addlanguage', function(req, res) {
-    // countryArray = req.body.countries.split(';');
-    // neighborhoodArray = req.body.neighborhoods.split(';');
-    // institutionArray = req.body.institutions.split(';');
-    // continentArray = req.body.continents.split(';');
-    // console.log(continentArray);
 
     var u = new Language({
     // var u = new Test({
@@ -491,14 +452,11 @@ router.get('/editinst', function(req, res){
       endangermentNum: req.body.endangermentNum,
       status: req.body.status,
       ntacode_1: req.body.ntacode_1,
+      script: req.body.script
     });
 
-    console.log(u._id);
-    console.log(u.language);
 
-    var test = "hello";
-
-
+    try{
     u.save(function(err){
       if(err){
         console.log(err);
@@ -507,190 +465,204 @@ router.get('/editinst', function(req, res){
       else{ 
 
 
-        
-
         var lat, lon;
         var countries = [];
         var continents = [];
+        var institution = req.body.institution
 
         if(u.id === "") {res.send("glottolog id is necessary");}
         else {
-          Neighborhood.findOne({"properties.NTACode": req.body.ntacode_1}, function(err,obj){
+          Neighborhood.findOne({"properties.NTACode": req.body.ntacode_1}, function(err,objN){
             if(err) {
-              // res.send(err);
             }
-            if (!obj) {
-              Language.remove({_id : u._id}, function(err) {
+            if (!objN) {
+      
 
-              // Test.remove({_id : req.body._id}, function(err) {
-                if(err) {
-                  res.send(err);
-                }
-                else{
-                res.send("NTA Code is invalid. Go back and re-submit.");
-                }
-              })
+              die(res, "NTA Code is invalid. Go back and re-submit.", u._id);
+
             }
             else {
-              Language.findByIdAndUpdate(
-              // Test.findByIdAndUpdate(
-                u._id,
-                {$push: {"neighborhoods": obj._id}},
-                {safe : true, upsert: true, new : true},
-                function(err, model){
-                  if (err) {
-                    res.send(err);
-                  } else {
-                    var url = "https://github.com/clld/glottolog/blob/master/languoids/languages_" + u.id[0]+'.md';
-                    request(url, function(error, response, html){
-                      if(!error){
-                        var $ = cheerio.load(html);
-                        var langUrl;
-                        var found;
-                        console.log(url);
-                        if($.html().includes(u.id)){
-                          $('.markdown-body ul li').filter(function(){
-                            var data = $(this);
-                        
-                            // console.log(data.length)
-                            var somelink = data.children().first().text();
-                            // console.log(somelink);
-                            if (somelink.indexOf(u.id)>=0){
-                              
-                              var langFileURL = "https://github.com"+ data.children().first().attr('href');
-                            
-                              request(langFileURL, function(err, response, html){
-                                if(!error){
-                                  var $ = cheerio.load(html);
-                                  $('tbody').filter(function(){
-                                    var data = $(this);
-                                    var textarray = data.children().next().text().replace(/ +(?= )/g,'').split("\n");
-                                    textarray.forEach(function(item, index){
-                                      item = item.trim();
-                                      if (item.indexOf("latitude")>=0){
-                                        lat = item.split(" = ")[1];
-                                      }
-                                      else if (item.indexOf("longitude")>=0){
-                                        lon = item.split(" = ")[1];
-                                      }
-                                      else if(item.indexOf("macroareas")>=0){
-                                        var i = index +1;
-                                        // console.log(textarray);
-                                        // console.log(textarray[i+1]);
-                                        while(textarray[i].indexOf("countries")<0){
-                                          if(textarray[i].length==1 || textarray[i].length == 0){
-                                            i+=1;
-                                            continue;
-                                          }
-                                          console.log(textarray[i].trim());
-                                          continents.push(textarray[i].trim());
-                                          i+=1;
-                                        }
-                                      }
-                                      else if (item.indexOf("countries")>=0){
-                                        var i = index+1;
-                                        while(textarray[i].indexOf("sources")<0){
-                              
-                                          if (textarray[i].length==1 || textarray[i].length==0){
-                                            i+=1;
-                                            continue;
-                                          }
-                                          countries.push(textarray[i].split('(')[0].trim());
-                                          i+=1; 
-                                        }
-                                      }
-                                      
-                                    })
-                                    
-                                   
+              console.log("institution |" + institution+"|");
 
-                                    var i = 0;
-                                    countries.forEach(function(country){
-                                      Country.findOne({"properties.ADMIN": country}, function(err,obj){
-                                        if(err) {res.send(err);}
-                                        if(!obj) {res.send(country + " was not found in the Countries database. contact administrator");}
-                                        else{ Language.findByIdAndUpdate(
-                                        // Test.findByIdAndUpdate(
-                                          u._id,
-                                          {$push: {"countries": obj._id}, $set: {"latitude": lat, "longitude": lon}},
-                                          {safe : true, upsert: true, new : true},
-                                          function(err, model){
-                                            i+=1;
-                                            if (err) res.send(err);
-                                            if (i == countries.length) {
-                                              // res.redirect("success")
-                                              // 
-                                              // 
-                                              var j = 0;
-                                              continents.forEach(function(continent){
-                                                Continent.findOne({"properties.CONTINENT": continent}, function(err,obj){
-                                                  if(err) {res.send(err);}
-                                                  if(!obj) {res.send(continent + " was not found in the continent database.")}
-                                                    else{Language.findByIdAndUpdate(
-                                                      u._id,
-                                                      {$push: {"continents": obj._id}},
-                                                      {safe : true, upsert: true, new : true},
-                                                      function(err, model){
-                                                        j+=1;
-                                                        if (err) res.send(err);
-                                                        if (j == continents.length) {
-                                                          res.redirect("success");
-                                                        }
-                                                      }
-                                                    )}
-                                                })
-                                              })
-                                            }
-                                            // console.log(test);
-                                          }
-                                        );
-                                        }
-                                      });
-                                    })
-                                  })
-                                }
-                              })
-                            }
-                          })
-                        }
-                        else {
-                          Language.remove({_id : u._id}, function(err) {
-
-                          // Test.remove({_id : req.body._id}, function(err) {
-                            if(err) {
-                              res.send(err);
-                            }
-                            else{
-                            res.send("code not found on glottolog. please contact admin.");
-                            
-                            }
-                          })
-                        }
-
-                      }
-                    })
+              if (1){
+                Institution.findOne({"properties.institution":institution}, function(err, objInst){
+                  if (!objInst && institution!==""){
+        
+                    die(res,"institution not found", u._id)
                   }
-                }
-              );
+                  else{
+
+
+
+                    Language.findByIdAndUpdate(
+                      u._id,
+                      {$push: {"neighborhoods": objN._id}},
+                      {safe : true, upsert: true, new : true},
+                      function(err, model){
+                        if (err) {
+                          res.send(err);
+                        } else {
+                          var url = "https://github.com/clld/glottolog/blob/master/languoids/languages_" + u.id[0]+'.md';
+                          request(url, function(error, response, html){
+                            if(!error){
+                              var $ = cheerio.load(html);
+                              var langUrl;
+                              var found;
+                              console.log(url);
+                              if ($.html().includes(u.id)===false){die(res, "code not found on glottolog", u._id);}
+                              else if($.html().includes(u.id)){
+                                $('.markdown-body ul li').filter(function(){
+                                  var data = $(this);
+                              
+                                  var somelink = data.children().first().text();
+                                  if (somelink.indexOf(u.id)>=0){
+                                    
+                                    var langFileURL = "https://github.com"+ data.children().first().attr('href');
+                                  
+                                    request(langFileURL, function(err, response, html){
+                                      if(!err){
+                                        var $ = cheerio.load(html);
+                                        $('tbody').filter(function(){
+                                          var data = $(this);
+                                          var textarray = data.children().next().text().replace(/ +(?= )/g,'').split("\n");
+                                          textarray.forEach(function(item, index){
+                                            item = item.trim();
+                                            if (item.indexOf("latitude")>=0){
+                                              lat = item.split(" = ")[1];
+                                            }
+                                            else if (item.indexOf("longitude")>=0){
+                                              lon = item.split(" = ")[1];
+                                            }
+                                            else if(item.indexOf("macroareas")>=0){
+                                              var i = index +1;
+                                          
+                                              while(textarray[i].indexOf("countries")<0){
+                                                if(textarray[i].length==1 || textarray[i].length == 0){
+                                                  i+=1;
+                                                  continue;
+                                                }
+                                                if (textarray[i].trim()=='Eurasia'){
+                                                  continents.push('Europe');
+                                                  continents.push('Asia');
+                                                }
+                                                else{
+                                                  continents.push(textarray[i].trim());
+                                                }
+                                                i+=1;
+                                              }
+                                            }
+                                            else if (item.indexOf("countries")>=0){
+                                              console.log("|"+textarray+"|");
+                                              var i = index+1;
+                                              while(textarray[i].indexOf("[")<0){
+                                    
+                                                if (textarray[i].length==1 || textarray[i].length==0){
+                                                  i+=1;
+                                                  continue;
+                                                }
+                                                countries.push(textarray[i].split('(')[0].trim());
+                                                i+=1; 
+                                              }
+                                            }
+                                            
+                                          })
+                                          
+                                         
+
+                                          var i = 0;
+                                          console.log("countries "+countries)
+                                          countries.forEach(function(country){
+                                            Country.findOne({"properties.ADMIN": country}, function(err,objCount){
+                                              if(err) {res.send(err);}
+                                              if(!objCount) {res.send(country + " was not found in the Countries database. contact administrator");}
+                                              else{ Language.findByIdAndUpdate(
+                                              // Test.findByIdAndUpdate(
+                                                u._id,
+                                                {$push: {"countries": objCount._id}, $set: {"latitude": lat, "longitude": lon}},
+                                                {safe : true, upsert: true, new : true},
+                                                function(err, model){
+                                                  i+=1;
+                                                  if (err) res.send(err);
+                                                  if (i == countries.length) {
+                                                    var j = 0;
+                                                    continents.forEach(function(continent){
+                                                      Continent.findOne({"properties.CONTINENT": continent}, function(err,objConti){
+                                                        if(err) {res.send(err);}
+                                                        if(!objConti) {res.send(continent + " was not found in the continent database.")}
+                                                          else{Language.findByIdAndUpdate(
+                                                            u._id,
+                                                            {$push: {"continents": objConti._id}},
+                                                            {safe : true, upsert: true, new : true},
+                                                            function(err, model){
+                                                              j+=1;
+                                                              if (err) res.send(err);
+                                                              if (j == continents.length) {
+
+                                                                if (institution !==""){
+                                                                  Institution.findOneAndUpdate({"properties.institution":institution},
+                                                                    {$push:{"properties.languages":u._id}},function(err,modelInst){
+                                                                      Language.findByIdAndUpdate(
+                                                                        u._id,
+                                                                        {$push:{"institutions":modelInst._id}},
+                                                                        function(err, modelInst){
+                                                                          if (err) res.send(err);
+                                                                          else{
+                                                                            res.redirect("success")
+                                                                          }
+                                                                        }
+                                                                      )}
+                                                                  );
+                                                                } else{
+                                                                  res.redirect("success")
+                                                                }
+                                                               
+                                                              }
+                                                            }
+                                                          )}
+                                                      })
+                                                    })
+                                                  }
+                                                  // console.log(test);
+                                                }
+                                              );
+                                              }
+                                            });
+                                          })
+                                        })
+                                      }
+                                    })
+                                  }
+                                })
+                              }
+                              else {
+                                  die(res, "Error in contacting glottolog. Check queries or contact admin", u._id)
+
+                              }
+
+                            }
+                          })
+                        }
+                      }
+                    );
+                  }
+                })
+              }
             }
           });
 
         }
       }
     });
+    }
 
-
-
-
-
-     
+    catch(error){
+      die(res, "Some error occured. Check entries or contact admin.", u._id);
+    }     
   });
 
 
-
-
-
   router.post('/updateInstEntry', function(req,res){
+    try{
     if(req.body.query.includes("lang")){
       console.log("REQ.BODY.QUERY "+ req.body.query);
       var target = "properties."+req.body.query;
@@ -760,9 +732,6 @@ router.get('/editinst', function(req, res){
         });
 
         response.on('end',function(){
-          // res.send(result);
-            // result = JSON.parse(result);
-            // console.log(result.geometry);
 
           if (result.includes("\"status\" : \"OK\"")!==true) {
             res.send("institution has no record on google maps. contact admin")
@@ -782,17 +751,14 @@ router.get('/editinst', function(req, res){
                   req.body._id,
                   { 
                     $set: {"geometry.coordinates": arr},
-                    // $push: {"geometry.coordinates": arr[1]},
-                    // $set: {"properties.address": req.body.value},
+   
                   },{safe : true, upsert: true},
                   function(err, model) {
-                    // console.log(req.body.value + "OIWJFIPWEJFP")
-                    // console.log(model);
+   
                     if(err){res.send(err);}
                     else{
                       Institution.findByIdAndUpdate(
 
-                      // Institutiontest.findByIdAndUpdate(
                         req.body._id,
                         {$set: {"properties.address": req.body.value}},
                         {safe:true,upsert:true},function(error,obj){
@@ -800,8 +766,7 @@ router.get('/editinst', function(req, res){
                             res.redirect("back");
                           }
                         });
-                      // res.redirect("back");
-                      // console.log(model);
+
                     }
                   });
                 break;
@@ -826,8 +791,17 @@ router.get('/editinst', function(req, res){
         });
 
     }
+    }
+    catch(error){
+      res.send("Some error occured. Please go back and check entries or contact admin.");
+    }
+
   });
   router.post('/updateEntry', function(req, res) {
+   console.log("update entry " + req.body.query + ' ' + req.body.value);
+
+   try{
+
     if (req.body.query == "ntacode_1"){
       Neighborhood.findOne({"properties.NTACode": req.body.value}, function(err,obj){
         if(err) {
@@ -847,7 +821,7 @@ router.get('/editinst', function(req, res){
           })
         }
       });
-    } else if (req.body.query == "id"){
+    } else if (req.body.query === "id"){
 
       var lat, lon;
       var countries = [];
@@ -936,25 +910,57 @@ router.get('/editinst', function(req, res){
         }
       })
 
-    } else {
-      Language.findByIdAndUpdate(req.body._id, { $set: { [req.body.query]: req.body.value}}, {upsert:true}, function(err,result){
+    } else if(req.body.query ==='videoURL'){
+      var vidID = getVideoId(req.body.value).id;
+      var embed ='';
+      if (vidID){
+        embed = 'https://youtube.com/embed/' + vidID;
+      }
+      
+      Language.findByIdAndUpdate(req.body._id, { $set: { [req.body.query]: embed}}, {upsert:true}, function(err, result){
+        if (err)
+          throw err
+        else
+          res.redirect('back');
+      })
 
-      // Test.findByIdAndUpdate(req.body._id, { $set: { [req.body.query]: req.body.value}}, {upsert:true}, function(err,result){
+    } else {
+
+      var val = req.body.query == "endangermentNum" ? Number(req.body.value) : req.body.value
+      console.log("val " + val + ' ' + typeof val);
+      Language.findByIdAndUpdate(req.body._id, { $set: { [req.body.query]: val}}, {upsert:true}, function(err,result){
         if (err)
           throw err
         else
           res.redirect('back');
       })
     }
+  }
+
+  catch(error){
+    res.send("Some error ocurred. Please go back and check entries or go back and conact admin")
+  }
 
   });
 
+
+function dieInst(res, message, id){
+
+  Institution.remove({_id : id}, function(err) {
+
+  // Test.remove({_id : req.body._id}, function(err) {
+    if(err) {
+      res.send(err);
+    }
+    else{
+    res.send(message);
+    }
+  })
+}
+
+
   router.post('/addinstitution', function(req, res) {
-    console.log(req.body.type);
-    langArray = req.body.languages.split(';')
-    var lang_i = ["lang_1","lang_2","lang_3",
-                  "lang_4","lang_5","lang_6",
-                  "lang_7","lang_8","lang_9"];
+    
 
       var u = new Institution({
     // var u = new Institutiontest({
@@ -972,18 +978,24 @@ router.get('/editinst', function(req, res){
         coordinates : []
       }
     });
-    console.log(u._id);
-    console.log(u);
 
+  
+
+    langArray = req.body.languages.split(';')
+    var lang_i = ["lang_1","lang_2","lang_3",
+                  "lang_4","lang_5","lang_6",
+                  "lang_7","lang_8","lang_9"];
 
     for (var i = 0; i<lang_i.length; i++){
       if (typeof langArray[i] !== 'undefined' && langArray[i]!=="") {
-        u.properties[lang_i[i]] = langArray[i];
+        u.properties[lang_i[i]] = langArray[i].trim();
+        langArray[i] = langArray[i].trim()
       } else
           u.properties[lang_i[i]] = null
     }
 
     var j = 0;
+    try{
     u.save(function(err){
       if(err){
         console.log(err);
@@ -993,10 +1005,9 @@ router.get('/editinst', function(req, res){
         langArray.forEach(function(language){
           Language.findOne({"id":language}, function(err, obj){
             if (err) {res.send(err);}
-            if(obj) {
+            if(!obj){dieInst(res, language + " was not found in the database. Add this language first or contact admin.", u._id)}
+            else if(obj) {
               Institution.findByIdAndUpdate(
-
-              // Institutiontest.findByIdAndUpdate(
                 u._id,
                 {$push: {"properties.languages": obj._id}},
                 {safe : true, upsert: true, new : true},
@@ -1016,25 +1027,9 @@ router.get('/editinst', function(req, res){
                       response.on('data', function(chunk){
                         result += chunk;
                       });
-
                       response.on('end',function(){
-                        // res.send(result);
-                          // result = JSON.parse(result);
-                          // console.log(result.geometry);
-
                         if (result.includes("\"status\" : \"OK\"")!==true) {
-                          Institution.remove({_id : u._id}, function(err) {
-
-                          // Test.remove({_id : req.body._id}, function(err) {
-                            if(err) {
-                              res.send(err);
-                            }
-                            else{
-                            res.send("institution has no record on google maps. contact admin");  
-                            }
-                          })
-
-
+                          dieInst(res, "institution has no record on google maps. contact admin", u._id);
                         }
                         else{
 
@@ -1052,7 +1047,7 @@ router.get('/editinst', function(req, res){
                                 function(err, model) {
                                   if(err){res.send(err);}
                                   else{
-                                    res.redirect("back");
+                                    res.redirect("success");
                                   }
                                 });
                               break;
@@ -1067,24 +1062,16 @@ router.get('/editinst', function(req, res){
 
             }
             else{
-              Institution.remove({_id : u._id}, function(err) {
-
-              // Test.remove({_id : req.body._id}, function(err) {
-                if(err) {
-                  res.send(err);
-                }
-                else{
-                res.send(language + " was not found in the database. Please go back and correct to add.")
-                
-                }
-              })
-
+              dieInst(res, language + " was not found in the database. Please go back and correct to add.", u._id)
             }
           })
         })
         
     });
-
+    }
+    catch(error){
+      dieInst(res, "Some error occured. Please check entries or contact admin.", u._id);
+    }
     
   })
 
@@ -1093,14 +1080,57 @@ router.get('/editinst', function(req, res){
   });
 
   router.post('/removeLang', function(req,res){
-    Language.remove({_id : req.body._id}, function(err) {
+    // console.log(req.body._id);
+    console.log("REMOVE LANG")
 
-    // Test.remove({_id : req.body._id}, function(err) {
-      if(err) {
-        res.send(err);
+    Language.findOne({_id: req.body._id},function(err, lang){
+      lang = lang.toObject()
+      console.log("lang id " + lang._id);
+      var instID;
+      if (lang.properties === undefined){
+        instID = lang.institutions[0]
       }
-      else{
-        res.redirect("success");
+      else {
+        instID = lang.properties.institutions[0]
+      }
+
+      if (instID !== undefined){
+        console.log('inst id '+instID);
+        Institution.findById(instID, function(err, institution){
+          if (err){res.send(err)}
+          var arr = institution.properties.languages;
+          arr.forEach(function(language, i){
+            console.log("language 1099 "+typeof language + ' '+ typeof lang._id)
+            if (language.toString()===lang._id.toString()){
+              console.log("lang to remove: "+arr[i])
+
+              arr.splice(i,1);
+              console.log(arr);
+              Institution.findByIdAndUpdate(instID, {$set: {"properties.languages": institution.properties.languages}}, function(err, obj){
+                Language.remove({_id : req.body._id}, function(err) {
+
+                  if(err) {
+                    res.send(err);
+                  }
+                  else{
+                    res.redirect("success");
+                  }
+                })
+              })
+            }
+          })
+        })
+      } else {
+        Language.remove({_id : req.body._id}, function(err) {
+
+          if(err) {
+            res.send(err);
+          }
+          else{
+            res.redirect("success");
+          }
+        })
+
       }
     })
   });
